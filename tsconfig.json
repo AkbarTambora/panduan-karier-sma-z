@@ -1,3 +1,5 @@
+// tsconfig.json
+// This file is used to configure TypeScript for a Next.js project.
 {
   "compilerOptions": {
     "target": "ES2017",
