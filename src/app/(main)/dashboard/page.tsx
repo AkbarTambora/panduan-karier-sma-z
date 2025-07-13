@@ -34,8 +34,8 @@ export default function DashboardPage() {
           <Image
             src="/images/career-guidance-dashboard.png" // Path relatif dari folder 'public'
             alt="Ilustrasi siswa di persimpangan jalan karier"
-            layout="fill"
-            objectFit="cover"
+            fill // <-- Prop 'fill' menggantikan layout="fill"
+            className="object-cover" // <-- Kelas Tailwind menggantikan objectFit="cover"
           />
         </div>
 

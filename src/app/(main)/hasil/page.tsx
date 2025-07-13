@@ -4,13 +4,23 @@ import { Suspense } from 'react';
 import { RiasecType } from '@/data/riasecQuestions';
 import { riasecDetails } from '@/data/riasecDescriptions';
 
-// Tipe untuk props halaman ini, searchParams berisi data dari URL
+// Tipe untuk searchParams yang SUDAH di-resolve
+type ResolvedSearchParams = { [key: string]: string | string[] | undefined };
+
+// Tipe untuk props Halaman, searchParams adalah Promise
 type HasilPageProps = {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<ResolvedSearchParams>; // <-- PERUBAHAN TIPE
 };
 
-// Komponen utama halaman
-export default function HasilPage({ searchParams }: HasilPageProps) {
+// Tipe untuk props HasilContent, searchParams adalah objek biasa
+type HasilContentProps = {
+  searchParams: ResolvedSearchParams;
+}
+
+// Komponen utama halaman menjadi ASYNC
+export default async function HasilPage({ searchParams }: HasilPageProps) { // <-- TAMBAHKAN ASYNC
+  const resolvedSearchParams = await searchParams; // <-- LAKUKAN AWAIT
+
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-8 md:p-12">
       <div className="max-w-4xl mx-auto">
@@ -19,9 +29,12 @@ export default function HasilPage({ searchParams }: HasilPageProps) {
           <p className="mt-2 text-lg text-slate-600">Inilah tiga tipe kepribadian yang paling menonjol dalam dirimu.</p>
         </div>
         
-        {/* Suspense digunakan untuk menangani loading jika komponen di dalamnya butuh waktu */}
+        {/* 
+          Suspense tetap penting karena async component bisa memakan waktu.
+          Kita sekarang me-pass searchParams yang sudah di-resolve (bukan promise lagi).
+        */}
         <Suspense fallback={<LoadingSkeleton />}>
-          <HasilContent searchParams={searchParams} />
+          <HasilContent searchParams={resolvedSearchParams} />
         </Suspense>
 
       </div>
@@ -30,7 +43,7 @@ export default function HasilPage({ searchParams }: HasilPageProps) {
 }
 
 // Komponen terpisah untuk memproses dan menampilkan konten
-function HasilContent({ searchParams }: HasilPageProps) {
+function HasilContent({ searchParams }: HasilContentProps) {
   // 1. Proses data dari URL
   const scores: { type: RiasecType; score: number }[] = Object.entries(searchParams)
     .map(([key, value]) => ({
