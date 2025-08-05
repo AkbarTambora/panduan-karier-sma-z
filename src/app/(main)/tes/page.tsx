@@ -1,5 +1,5 @@
 // src/app/(main)/tes/page.tsx
-import TestEngine from '@/components/TestEngine'; 
+import TestEngine from 'src/app/components/TestEngine'; 
 
 export default function TesPage() {
   return (

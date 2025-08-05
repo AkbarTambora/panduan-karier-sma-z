@@ -78,6 +78,29 @@ export default function TestEngine() {
     router.push(`/hasil?${queryParams}`);
   };
 
+  const colorClasses = {
+    red: {
+      hover: 'hover:border-red-400 hover:bg-red-50',
+      active: 'border-red-500 bg-red-100 ring-2 ring-red-400'
+    },
+    orange: {
+      hover: 'hover:border-orange-400 hover:bg-orange-50',
+      active: 'border-orange-500 bg-orange-100 ring-2 ring-orange-400'
+    },
+    gray: {
+      hover: 'hover:border-gray-400 hover:bg-gray-50',
+      active: 'border-gray-500 bg-gray-100 ring-2 ring-gray-400'
+    },
+    green: {
+      hover: 'hover:border-green-400 hover:bg-green-50',
+      active: 'border-green-500 bg-green-100 ring-2 ring-green-400'
+    },
+    blue: {
+      hover: 'hover:border-blue-400 hover:bg-blue-50',
+      active: 'border-blue-500 bg-blue-100 ring-2 ring-blue-400'
+    },
+  };
+
   // Helper untuk mengecek apakah pertanyaan saat ini sudah dijawab ---
   const isCurrentQuestionAnswered = answers.has(currentQuestion?.id);
 
@@ -150,10 +173,10 @@ export default function TestEngine() {
                       transition-all duration-200 ease-in-out
                       transform hover:scale-105 hover:shadow-md focus:outline-none 
                       focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
-                      hover:border-${option.color}-400 hover:bg-${option.color}-50
                       ${option.value === 3 ? "sm:col-span-1" : ""}
+                      ${colorClasses[option.color as keyof typeof colorClasses].hover}
                       ${answers.get(currentQuestion.id)?.value === option.value
-                        ? `border-${option.color}-500 bg-${option.color}-100 ring-2 ring-${option.color}-400`
+                        ? colorClasses[option.color as keyof typeof colorClasses].active
                         : "border-slate-300"
                       }
                     `}

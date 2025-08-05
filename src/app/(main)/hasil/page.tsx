@@ -1,127 +1,150 @@
 // src/app/(main)/hasil/page.tsx
-
 import { Suspense } from 'react';
-import { RiasecType } from '@/data/riasecQuestions';
+import { redirect } from 'next/navigation';
+import { getAnalysisReport } from '@/lib/services/riasecService';
 import { riasecDetails } from '@/data/riasecDescriptions';
+import { HexagonChart } from '@/components/results/HexagonChart';
 
-// Tipe untuk searchParams yang SUDAH di-resolve
-type ResolvedSearchParams = { [key: string]: string | string[] | undefined };
+// Komponen-komponen UI yang akan kita buat NANTI
+// import { HexagonChart } from '@/components/results/HexagonChart';
+// import { ResultBarChart } from '@/components/results/ResultBarChart';
+// import { RecommendationCard } from '@/components/results/RecommendationCard';
 
-// Tipe untuk props Halaman, searchParams adalah Promise
+// Tipe untuk searchParams
 type HasilPageProps = {
-  searchParams: Promise<ResolvedSearchParams>; // <-- PERUBAHAN TIPE
+  searchParams: { [key: string]: string | string[] | undefined };
 };
 
-// Tipe untuk props HasilContent, searchParams adalah objek biasa
-type HasilContentProps = {
-  searchParams: ResolvedSearchParams;
-}
-
-// Komponen utama halaman menjadi ASYNC
-export default async function HasilPage({ searchParams }: HasilPageProps) { // <-- TAMBAHKAN ASYNC
-  const resolvedSearchParams = await searchParams; // <-- LAKUKAN AWAIT
-
+export default async function HasilPage({ searchParams }: HasilPageProps) {
+  // Biarkan halaman utama tetap ramping
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-8 md:p-12">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-800">Hasil Analisis Minat Bakatmu</h1>
-          <p className="mt-2 text-lg text-slate-600">Inilah tiga tipe kepribadian yang paling menonjol dalam dirimu.</p>
-        </div>
-        
-        {/* 
-          Suspense tetap penting karena async component bisa memakan waktu.
-          Kita sekarang me-pass searchParams yang sudah di-resolve (bukan promise lagi).
-        */}
+      <div className="max-w-5xl mx-auto">
         <Suspense fallback={<LoadingSkeleton />}>
-          <HasilContent searchParams={resolvedSearchParams} />
+          <HasilContent searchParams={searchParams} />
         </Suspense>
-
       </div>
     </main>
   );
 }
 
-// Komponen terpisah untuk memproses dan menampilkan konten
-function HasilContent({ searchParams }: HasilContentProps) {
-  // 1. Proses data dari URL
-  const scores: { type: RiasecType; score: number }[] = Object.entries(searchParams)
-    .map(([key, value]) => ({
-      type: key as RiasecType,
-      score: Number(value),
-    }))
-    .filter(item => riasecDetails[item.type]) // Filter jika ada param yg bukan RIASEC
-    .sort((a, b) => b.score - a.score); // Urutkan dari skor tertinggi
+// JADIKAN KOMPONEN INI ASYNC
+async function HasilContent({ searchParams }: HasilPageProps) {
+  // --- PERBAIKAN DIMULAI DI SINI ---
 
-  // Jika tidak ada skor, tampilkan pesan
-  if (scores.length < 3) {
-    return (
-      <div className="text-center bg-white p-8 rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-red-600">Oops! Data tidak ditemukan.</h2>
-        <p className="mt-2">Sepertinya kamu belum menyelesaikan tes. Silakan kembali dan selesaikan tesnya terlebih dahulu.</p>
-      </div>
-    )
+  // 1. Destrukturisasi atau buat objek baru dari searchParams SECARA EKSPLISIT.
+  // Ini mengubah Proxy dinamis menjadi objek JavaScript biasa yang aman untuk diiterasi.
+  const { R, I, A, S, E, C } = searchParams;
+  const potentialScores = { R, I, A, S, E, C };
+  
+  const riasecScores: { [key: string]: string } = {};
+  const RIASEC_TYPES = ['R', 'I', 'A', 'S', 'E', 'C'];
+  
+  // 2. SEKARANG, lakukan iterasi pada objek `potentialScores` yang sudah aman.
+  for (const key of RIASEC_TYPES) {
+    // Kita mengakses `potentialScores`, bukan `searchParams` lagi. Ini AMAN.
+    const value = potentialScores[key as keyof typeof potentialScores]; 
+    if (value && typeof value === 'string') {
+      riasecScores[key] = value;
+    }
   }
 
-  // 2. Ambil 3 tipe teratas
-  const topThree = scores.slice(0, 3).map(s => riasecDetails[s.type]);
-  const dominantType = topThree[0];
-  const secondaryTypes = topThree.slice(1);
+  // 3. Validasi dan logika selanjutnya tidak perlu diubah, karena sudah menggunakan objek `riasecScores` yang aman.
+  if (Object.keys(riasecScores).length === 0) {
+    redirect('/tes');
+  }
 
-  // 3. Render UI
+  // Teruskan objek yang aman ini ke service Anda.
+  const report = getAnalysisReport(riasecScores);
+  const { userProfile, majorMatches, careerMatches, motivation } = report;
+
   return (
-    <div className="space-y-8">
-      {/* Tipe Dominan */}
-      <div className="bg-white p-8 rounded-2xl shadow-xl border-t-4 border-blue-600">
-        <h2 className="text-sm font-bold uppercase text-blue-600">Tipe Dominan Kamu</h2>
-        <h3 className="mt-1 text-3xl font-bold text-slate-900">{dominantType.name} ({dominantType.code})</h3>
-        <p className="mt-4 text-slate-700">{dominantType.description}</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {dominantType.keywords.map(keyword => (
-            <span key={keyword} className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">{keyword}</span>
+    <div className="space-y-10">
+      {/* Bagian Header Personal */}
+      <header className="text-center">
+        <h1 className="text-4xl md:text-5xl font-bold text-slate-800">
+          Analisis Kepribadian <br />
+          <span className="text-blue-600">{userProfile.personaName}</span>
+        </h1>
+        <p className="mt-4 max-w-3xl mx-auto text-lg text-slate-600">
+          {motivation}
+        </p>
+      </header>
+      
+      {/* Bagian Visualisasi Data */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+        <div className="bg-white p-6 rounded-2xl shadow-lg">
+          <h2 className="text-xl font-bold text-slate-700 mb-4 text-center">Profil Minatmu</h2>
+          <div className="space-y-3">
+            {userProfile.percentages.map(([type, percentage]) => (
+              <div key={type}>
+                <div className="flex justify-between mb-1">
+                  <span className="text-base font-medium text-slate-700">{riasecDetails[type as keyof typeof riasecDetails].name.replace(/\s\(.*\)/, '')}</span>
+                  <span className="text-sm font-medium text-blue-700">{percentage}%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2.5">
+                  <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${percentage}%` }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-lg h-full flex flex-col items-center justify-center space-y-4">
+          <h2 className="text-xl font-bold text-slate-700 text-center">
+            Peta Minatmu
+          </h2>
+          <HexagonChart 
+            percentages={userProfile.percentages} 
+            topThree={userProfile.topThree} 
+          />
+        </div>
+      </section>
+
+      {/* Bagian Rekomendasi */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Rekomendasi Jurusan */}
+        <div className="space-y-4">
+          <h2 className="text-3xl font-bold text-slate-800">Rekomendasi Jurusan</h2>
+          {majorMatches.map(major => (
+            <div key={major.id} className="bg-white p-6 rounded-2xl shadow-lg">
+              <div className="flex justify-between items-start">
+                <h3 className="text-xl font-bold text-slate-900">{major.name}</h3>
+                <span className="text-xs font-bold text-blue-800 bg-blue-100 px-3 py-1 rounded-full whitespace-nowrap">
+                  Sesuai Minat {riasecDetails[major.matchedType].name.replace(/\s\(.*\)/, '')}
+                </span>
+              </div>
+              <p className="mt-2 text-slate-600">{major.description}</p>
+              <p className="mt-3 text-xs text-slate-400">
+                Profil Jurusan: {Object.entries(major.riasecProfile).map(([t,s]) => `${t}:${s}`).join(', ')}
+              </p>
+            </div>
           ))}
         </div>
-      </div>
-
-      {/* 2 Tipe Pendukung */}
-      <div className="grid md:grid-cols-2 gap-8">
-        {secondaryTypes.map((type, index) => (
-          <div key={type.code} className="bg-white p-6 rounded-2xl shadow-lg border-t-4 border-slate-400">
-            <h2 className="text-sm font-bold uppercase text-slate-500">Tipe Pendukung #{index + 1}</h2>
-            <h3 className="mt-1 text-2xl font-bold text-slate-800">{type.name} ({type.code})</h3>
-            <p className="mt-3 text-slate-600 text-sm">{type.description}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Rekomendasi Karier & Jurusan */}
-      <div className="bg-white p-8 rounded-2xl shadow-lg">
-        <h2 className="text-2xl font-bold text-slate-800 mb-4">Rekomendasi Jalur Untukmu</h2>
-        <div className="grid md:grid-cols-2 gap-8">
-          <div>
-            <h3 className="font-semibold text-lg text-slate-700 mb-2">🎓 Contoh Jurusan Kuliah</h3>
-            <ul className="space-y-1 list-disc list-inside text-slate-600">
-              {/* Gabungkan jurusan dari 3 tipe teratas dan ambil beberapa contoh unik */}
-              {[...new Set([...dominantType.majors, ...secondaryTypes.flatMap(t => t.majors)])].slice(0, 6).map(major => (
-                <li key={major}>{major}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h3 className="font-semibold text-lg text-slate-700 mb-2">💼 Contoh Profesi</h3>
-            <ul className="space-y-1 list-disc list-inside text-slate-600">
-              {[...new Set([...dominantType.careers, ...secondaryTypes.flatMap(t => t.careers)])].slice(0, 6).map(career => (
-                <li key={career}>{career}</li>
-              ))}
-            </ul>
-          </div>
+        {/* Rekomendasi Karier */}
+        <div className="space-y-4">
+          <h2 className="text-3xl font-bold text-slate-800">Rekomendasi Karier</h2>
+          {careerMatches.map(career => (
+            <div key={career.id} className="bg-white p-6 rounded-2xl shadow-lg">
+              <div className="flex justify-between items-start">
+                <h3 className="text-xl font-bold text-slate-900">{career.name}</h3>
+                <span className="text-xs font-bold text-blue-800 bg-blue-100 px-3 py-1 rounded-full whitespace-nowrap">
+                  Sesuai Minat {riasecDetails[career.matchedType].name.replace(/\s\(.*\)/, '')}
+                </span>
+              </div>
+              <p className="mt-2 text-slate-600">{career.description}</p>
+              <p className="mt-3 text-xs text-slate-400">
+                Profil Karier: {Object.entries(career.riasecProfile).map(([t,s]) => `${t}:${s}`).join(', ')}
+              </p>
+            </div>
+          ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
 
-// Komponen untuk UI loading (jika diperlukan)
+
 function LoadingSkeleton() {
-  return <div className="text-center p-8">Memuat hasil...</div>;
+  return <div className="text-center p-12 text-lg font-semibold">Menganalisis jawabanmu...</div>;
 }
+
