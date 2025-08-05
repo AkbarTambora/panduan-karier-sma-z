@@ -5,14 +5,9 @@ import { getAnalysisReport } from '@/lib/services/riasecService';
 import { riasecDetails } from '@/data/riasecDescriptions';
 import { HexagonChart } from '@/components/results/HexagonChart';
 
-// Komponen-komponen UI yang akan kita buat NANTI
-// import { HexagonChart } from '@/components/results/HexagonChart';
-// import { ResultBarChart } from '@/components/results/ResultBarChart';
-// import { RecommendationCard } from '@/components/results/RecommendationCard';
-
 // Tipe untuk searchParams
 type HasilPageProps = {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export default async function HasilPage({ searchParams }: HasilPageProps) {
@@ -30,26 +25,25 @@ export default async function HasilPage({ searchParams }: HasilPageProps) {
 
 // JADIKAN KOMPONEN INI ASYNC
 async function HasilContent({ searchParams }: HasilPageProps) {
-  // --- PERBAIKAN DIMULAI DI SINI ---
-
-  // 1. Destrukturisasi atau buat objek baru dari searchParams SECARA EKSPLISIT.
-  // Ini mengubah Proxy dinamis menjadi objek JavaScript biasa yang aman untuk diiterasi.
-  const { R, I, A, S, E, C } = searchParams;
+  // --- PERBAIKAN: AWAIT searchParams terlebih dahulu ---
+  const params = await searchParams;
+  
+  // 1. Destrukturisasi dari params yang sudah di-await
+  const { R, I, A, S, E, C } = params;
   const potentialScores = { R, I, A, S, E, C };
   
   const riasecScores: { [key: string]: string } = {};
   const RIASEC_TYPES = ['R', 'I', 'A', 'S', 'E', 'C'];
   
-  // 2. SEKARANG, lakukan iterasi pada objek `potentialScores` yang sudah aman.
+  // 2. Lakukan iterasi pada objek `potentialScores` yang sudah aman.
   for (const key of RIASEC_TYPES) {
-    // Kita mengakses `potentialScores`, bukan `searchParams` lagi. Ini AMAN.
     const value = potentialScores[key as keyof typeof potentialScores]; 
     if (value && typeof value === 'string') {
       riasecScores[key] = value;
     }
   }
 
-  // 3. Validasi dan logika selanjutnya tidak perlu diubah, karena sudah menggunakan objek `riasecScores` yang aman.
+  // 3. Validasi dan logika selanjutnya tidak perlu diubah
   if (Object.keys(riasecScores).length === 0) {
     redirect('/tes');
   }
@@ -143,8 +137,6 @@ async function HasilContent({ searchParams }: HasilPageProps) {
   );
 }
 
-
 function LoadingSkeleton() {
   return <div className="text-center p-12 text-lg font-semibold">Menganalisis jawabanmu...</div>;
 }
-

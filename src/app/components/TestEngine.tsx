@@ -2,7 +2,7 @@
 "use client";
 
 // Impor 'useEffect' dan 'useMemo' dari React ---
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { riasecQuestions, RiasecType } from "@/data/riasecQuestions";
 

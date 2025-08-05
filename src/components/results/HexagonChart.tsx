@@ -8,7 +8,6 @@ type HexagonChartProps = {
   topThree: RiasecType[];
 };
 
-// --- TIDAK ADA PERUBAHAN DI FUNGSI INI ---
 const getOriginalPoint = (index: number, radius: number, value: number) => {
   const angleDeg = 60 * index - 90;
   const angleRad = (Math.PI / 180) * angleDeg;
@@ -19,7 +18,6 @@ const getOriginalPoint = (index: number, radius: number, value: number) => {
 };
 
 export function HexagonChart({ percentages, topThree }: HexagonChartProps) {
-  // --- PERUBAHAN DIMULAI DARI SINI ---
 
   const chartSize = 280; // Ukuran asli chart yang kita inginkan
   const padding = 40; // Ruang ekstra untuk label di setiap sisi
