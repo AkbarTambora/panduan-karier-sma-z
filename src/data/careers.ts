@@ -1,3 +1,5 @@
+// src/data/careers.ts
+
 // Import dari majors.ts yang sekarang sudah mengekspor tipe yang benar
 import type { RiasecScoreProfile } from './majors';
 

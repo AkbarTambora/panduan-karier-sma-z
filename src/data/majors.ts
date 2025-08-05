@@ -1,3 +1,5 @@
+// src/data/majors.ts
+
 import type { RiasecType } from './riasecQuestions';
 
 // Menggunakan skala 1-10 untuk mempermudah pembobotan

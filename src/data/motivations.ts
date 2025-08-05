@@ -1,3 +1,4 @@
+// src/data/motivations.ts
 export const motivations: { [key: string]: string } = {
   // Kombinasi 2 Huruf Teratas
   'RI': "Kombinasi antara Realistis dan Investigatif menunjukkan kamu adalah seorang pemecah masalah yang praktis. Kamu tidak hanya suka memahami 'mengapa' sesuatu bekerja, tetapi juga 'bagaimana' membuatnya bekerja lebih baik.",

@@ -61,7 +61,7 @@ export function getAnalysisReport(rawScores: { [key: string]: string }): Analysi
  * Sekarang fungsi ini menerima objek JS biasa, sehingga looping menjadi aman.
  */
 
-function processUserScores(rawScores: { [key:string]: string }): UserProfile {
+export function processUserScores(rawScores: { [key:string]: string }): UserProfile {
   const scoresMap: Partial<{ [key in RiasecType]: number }> = {};
   
    // ✅ Loop ini sekarang AMAN karena `rawScores` bukan lagi proxy object.
@@ -117,7 +117,7 @@ function processUserScores(rawScores: { [key:string]: string }): UserProfile {
  * @param items - Array data jurusan atau karier.
  * @returns {MatchResult[]} - Daftar item yang direkomendasikan.
  */
-function getTopMatches(userProfile: UserProfile, items: (Major | Career)[]): MatchResult[] {
+export function getTopMatches(userProfile: UserProfile, items: (Major | Career)[]): MatchResult[] {
   const { topThree } = userProfile;
   
   if (topThree.length === 0) {
@@ -191,7 +191,7 @@ function getTopMatches(userProfile: UserProfile, items: (Major | Career)[]): Mat
   return recommendations.slice(0, 6);
 }
 
-function getPersonalizedMotivation(topTwoCode: string): string {
+export function getPersonalizedMotivation(topTwoCode: string): string {
   const reversedCode = topTwoCode.split('').reverse().join('');
   return motivations[topTwoCode] || motivations[reversedCode] || motivations['DEFAULT'];
 }
