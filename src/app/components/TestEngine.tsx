@@ -2,7 +2,7 @@
 "use client";
 
 // Impor 'useEffect' dan 'useMemo' dari React ---
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react"; // <-- Ganti useMemo dengan useEffect
 import { useRouter } from "next/navigation";
 import { riasecQuestions, RiasecType } from "@/data/riasecQuestions";
 
@@ -16,14 +16,18 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [newArray[i], newArray[j]] = [newArray[j], newArray[i]]; // Swap elemen
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
   }
   return newArray;
 };
 
 export default function TestEngine() {
-  const shuffledQuestions = useMemo(() => shuffleArray(riasecQuestions), []);
+  const [shuffledQuestions, setShuffledQuestions] = useState<typeof riasecQuestions>([]);
 
+  // useEffect untuk mengacak pertanyaan hanya di client side
+  useEffect(() => {
+    setShuffledQuestions(shuffleArray(riasecQuestions));
+  }, []); // Array dependensi kosong berarti ini hanya berjalan sekali saat komponen mount
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   // Gunakan Map untuk menyimpan jawaban. Key: questionId, Value: { value, type }
@@ -34,6 +38,15 @@ export default function TestEngine() {
   // Gunakan array yang sudah diacak ---
   const totalQuestions = shuffledQuestions.length;
   const currentQuestion = shuffledQuestions[currentQuestionIndex];
+
+  // 3. Tambahkan kondisi loading saat pertanyaan belum diacak
+  if (shuffledQuestions.length === 0) {
+    return (
+        <div className="w-full max-w-2xl mx-auto text-center p-8">
+            <p className="text-lg font-semibold text-slate-600">Mempersiapkan tes...</p>
+        </div>
+    );
+  }
 
   // Modifikasi handleAnswer untuk mengupdate Map ---
   const handleAnswer = (value: number) => {
