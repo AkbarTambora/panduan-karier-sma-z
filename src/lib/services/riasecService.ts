@@ -1,10 +1,12 @@
 // src/lib/services/riasecService.ts
 
 import type { RiasecType } from '@/data/riasecQuestions';
-import { careers, type Career } from '@/data/careers';
-import { majors, type Major, type RiasecScoreProfile } from '@/data/majors';
+// --- PERBAIKAN: Impor tipe yang dibutuhkan ---
+import type { Career } from '@/data/careers';
+import type { Major, RiasecScoreProfile } from '@/data/majors'; // <-- Buka kembali RiasecScoreProfile
 import { motivations } from '@/data/motivations';
 import { riasecDetails } from '@/data/riasecDescriptions';
+import clientPromise from '@/lib/mongodb';
 
 // Tipe data yang akan kita gunakan di seluruh service
 type RiasecScoreTuple = [RiasecType, number];
@@ -40,10 +42,25 @@ const RIASEC_TYPES: RiasecType[] = ['R', 'I', 'A', 'S', 'E', 'C'];
  * Fungsi utama yang dipanggil oleh halaman Hasil.
  * PERBAIKAN: Ubah tipe parameter menjadi lebih spesifik.
  */
-export function getAnalysisReport(rawScores: { [key: string]: string }): AnalysisReport {
+export async function getAnalysisReport(rawScores: { [key: string]: string }): Promise<AnalysisReport> {
+  
+  const mongoClient = await clientPromise;
+  const dbName = process.env.MONGODB_DB_NAME;
+  if (!dbName) {
+    throw new Error("Missing environment variable: MONGODB_DB_NAME");
+  }
+  const db = mongoClient.db(dbName);
+
+  const [majorsData, careersData] = await Promise.all([
+    db.collection<Major>('majors').find({}).toArray(),
+    db.collection<Career>('careers').find({}).toArray()
+  ]);
+
+  // --- PERBAIKAN: Ganti 'processUserucers' menjadi 'processUserScores' ---
   const userProfile = processUserScores(rawScores);
-  const majorMatches = getTopMatches(userProfile, majors);
-  const careerMatches = getTopMatches(userProfile, careers);
+  
+  const majorMatches = getTopMatches(userProfile, majorsData);
+  const careerMatches = getTopMatches(userProfile, careersData);
   const motivation = getPersonalizedMotivation(userProfile.topTwoCode);
 
   return {
@@ -99,7 +116,12 @@ export function processUserScores(rawScores: { [key:string]: string }): UserProf
 
   const dominantTypeInfo = riasecDetails[topThree[0]];
   const secondaryTypeInfo = riasecDetails[topThree[1]];
-  const personaName = `Si ${dominantTypeInfo.name.split(' ')[0]} yang ${secondaryTypeInfo.name.split(' ')[0]}`;
+  
+  // Dengan logika yang lebih cerdas ini:
+  const dominantPersona = dominantTypeInfo.name.match(/\((.*?)\)/)?.[1] || dominantTypeInfo.name.split(' ')[0];
+  const secondaryPersona = secondaryTypeInfo.name.match(/\((.*?)\)/)?.[1] || secondaryTypeInfo.name.split(' ')[0];
+  const secondaryPersonaClean = secondaryPersona.replace('Si ', '');
+  const personaName = `${dominantPersona} yang ${secondaryPersonaClean}`;
 
   return {
     scores: sortedScores,
