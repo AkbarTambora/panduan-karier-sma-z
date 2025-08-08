@@ -28,25 +28,32 @@ export default async function HasilPage({ searchParams }: HasilPageProps) {
 
 // Komponen Konten Inti (Server Component)
 async function HasilContent({ searchParams }: HasilPageProps) {
-  // Gunakan URLSearchParams untuk cara yang lebih aman dalam mengelola parameter URL
-  const params = new URLSearchParams(searchParams as Record<string, string>);
-
-  // Ambil data personal dari URL
-  const nama = params.get('nama') || 'Siswa';
-  const kelas = params.get('kelas') || 'Kelas';
-  const sekolah = params.get('sekolah') || 'Sekolah';
-
-  // Siapkan objek untuk menampung skor
-  const riasecScores: { [key: string]: string } = {};
+   // =================================================================
+  // BLOK KODE BARU YANG LEBIH AMAN UNTUK MEMBACA searchParams
+  // =================================================================
   const RIASEC_TYPES: RiasecType[] = ['R', 'I', 'A', 'S', 'E', 'C'];
+  
+  // Ambil data personal (handle jika nilainya array, ambil yg pertama)
+  const namaValue = searchParams.nama;
+  const nama = Array.isArray(namaValue) ? namaValue[0] : namaValue || 'Siswa';
 
-  // Loop melalui tipe RIASEC untuk mengambil skor dari parameter URL
+  const kelasValue = searchParams.kelas;
+  const kelas = Array.isArray(kelasValue) ? kelasValue[0] : kelasValue || 'Kelas';
+  
+  const sekolahValue = searchParams.sekolah;
+  const sekolah = Array.isArray(sekolahValue) ? sekolahValue[0] : sekolahValue || 'Sekolah';
+
+  // Ambil skor
+  const riasecScores: { [key: string]: string } = {};
   for (const key of RIASEC_TYPES) {
-    const value = params.get(key);
-    if (value) {
-      riasecScores[key] = value;
+    const scoreValue = searchParams[key];
+    if (scoreValue && typeof scoreValue === 'string') {
+      riasecScores[key] = scoreValue;
     }
   }
+  // =================================================================
+  // AKHIR BLOK KODE BARU
+  // =================================================================
 
   // Pengaman: Jika tidak ada skor sama sekali, kembalikan ke halaman awal
   if (Object.keys(riasecScores).length === 0) {
