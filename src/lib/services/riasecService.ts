@@ -26,6 +26,7 @@ export interface MatchResult {
   description: string;
   matchedType: RiasecType; // Tipe dominan pengguna yang cocok dengan item ini
   riasecProfile: RiasecScoreProfile;
+  matchScore: number;
 }
 
 export interface AnalysisReport {
@@ -139,81 +140,85 @@ export function processUserScores(rawScores: { [key:string]: string }): UserProf
  * @param items - Array data jurusan atau karier.
  * @returns {MatchResult[]} - Daftar item yang direkomendasikan.
  */
-export function getTopMatches(userProfile: UserProfile, items: (Major | Career)[]): MatchResult[] {
-  const { topThree } = userProfile;
+export function getTopMatches(
+  userProfile: UserProfile, 
+  items: (Major | Career)[]
+): MatchResult[] {
+  const { topThree, percentages } = userProfile;
   
   if (topThree.length === 0) {
     return [];
   }
 
-  // 1. Kelompokkan semua item (jurusan/karier) berdasarkan tipe dominan mereka.
-  const itemsByDominantType = items.reduce((acc, item) => {
-    // Cari tipe dengan skor tertinggi di profil item
-    const dominantType = Object.entries(item.riasecProfile).sort(([,a],[,b]) => b - a)[0][0] as RiasecType;
-    
-    if (!acc[dominantType]) {
-      acc[dominantType] = [];
-    }
-    acc[dominantType].push(item);
-    return acc;
-  }, {} as { [key in RiasecType]?: (Major | Career)[] });
+  const allMatches: MatchResult[] = [];
 
-  // 2. Kumpulkan rekomendasi berdasarkan 3 tipe teratas pengguna
-  const recommendations: MatchResult[] = [];
-  
-  // Ambil 3 rekomendasi untuk tipe dominan #1
-  const firstType = topThree[0];
-  if (itemsByDominantType[firstType]) {
-    itemsByDominantType[firstType].slice(0, 3).forEach(item => {
-      recommendations.push({
+  // 1. Hitung skor kecocokan untuk SEMUA item
+  for (const item of items) {
+    const matchScore = calculateMatchScore(percentages, item.riasecProfile);
+    const dominantType = Object.entries(item.riasecProfile).sort(([,a],[,b]) => b - a)[0][0] as RiasecType;
+
+    // Tambahkan hanya jika tipe dominan item ada di 3 teratas pengguna
+    if (topThree.includes(dominantType)) {
+      allMatches.push({
         id: item.id,
         name: item.name,
         description: item.description,
-        matchedType: firstType, // Tandai kenapa ini direkomendasikan
-        riasecProfile: item.riasecProfile
+        matchedType: dominantType,
+        riasecProfile: item.riasecProfile,
+        matchScore: matchScore,
       });
-    });
+    }
   }
 
-  // Ambil 2 rekomendasi untuk tipe dominan #2
-  const secondType = topThree[1];
-  if (itemsByDominantType[secondType]) {
-    itemsByDominantType[secondType].slice(0, 2).forEach(item => {
-      // Pastikan tidak ada duplikat
-      if (!recommendations.some(rec => rec.id === item.id)) {
-        recommendations.push({
-          id: item.id,
-          name: item.name,
-          description: item.description,
-          matchedType: secondType,
-          riasecProfile: item.riasecProfile
-        });
-      }
-    });
-  }
+  // 2. Urutkan semua kandidat berdasarkan skor kecocokan, dari tertinggi ke terendah
+  allMatches.sort((a, b) => b.matchScore - a.matchScore);
 
-  // Ambil 1 rekomendasi untuk tipe dominan #3
-  const thirdType = topThree[2];
-  if (itemsByDominantType[thirdType]) {
-    itemsByDominantType[thirdType].slice(0, 1).forEach(item => {
-      // Pastikan tidak ada duplikat
-      if (!recommendations.some(rec => rec.id === item.id)) {
-        recommendations.push({
-          id: item.id,
-          name: item.name,
-          description: item.description,
-          matchedType: thirdType,
-          riasecProfile: item.riasecProfile
-        });
-      }
-    });
+  // 3. Ambil 6 rekomendasi teratas, pastikan tidak ada duplikat ID (untuk jaga-jaga)
+  const finalRecommendations: MatchResult[] = [];
+  const seenIds = new Set<string>();
+  
+  for (const match of allMatches) {
+    if (finalRecommendations.length >= 6) break;
+    if (!seenIds.has(match.id)) {
+      finalRecommendations.push(match);
+      seenIds.add(match.id);
+    }
   }
   
-  // Kita batasi total rekomendasi agar tidak terlalu banyak, misal 6
-  return recommendations.slice(0, 6);
+  return finalRecommendations;
 }
 
 export function getPersonalizedMotivation(topTwoCode: string): string {
   const reversedCode = topTwoCode.split('').reverse().join('');
   return motivations[topTwoCode] || motivations[reversedCode] || motivations['DEFAULT'];
+}
+
+/**
+ * Menghitung skor kecocokan antara profil pengguna dan profil item (jurusan/karier).
+ * Menggunakan metode 1 - (SAD / MaxSAD) untuk menghasilkan persentase (0-100).
+ * @param userPercentages - Array persentase pengguna, format: [['R', 75], ['I', 60], ...]
+ * @param itemProfile - Objek profil RIASEC item, format: { R: 9, I: 8, ... } (skala 1-10)
+ * @returns {number} Skor kecocokan dalam persen (0-100).
+ */
+function calculateMatchScore(
+  userPercentages: RiasecScoreTuple[], 
+  itemProfile: RiasecScoreProfile
+): number {
+  const userPercentagesMap = new Map(userPercentages);
+  
+  // Sum of Absolute Differences (SAD)
+  let sad = 0;
+  for (const type of RIASEC_TYPES) {
+    const userScore = userPercentagesMap.get(type) || 0;
+    const itemScore = (itemProfile[type] || 0) * 10; // Ubah skala 1-10 jadi 0-100
+    sad += Math.abs(userScore - itemScore);
+  }
+
+  // SAD maksimum yang mungkin terjadi adalah 600 (jika semua 0 vs 100).
+  const maxSAD = 600;
+  
+  // Ubah SAD menjadi skor kecocokan (semakin kecil SAD, semakin tinggi skor)
+  const matchScore = (1 - (sad / maxSAD)) * 100;
+
+  return Math.round(matchScore);
 }

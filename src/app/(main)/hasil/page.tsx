@@ -8,6 +8,39 @@ import { HexagonChart } from '@/components/results/HexagonChart';
 import type { RiasecType } from '@/data/riasecQuestions';
 import ReactMarkdown from 'react-markdown';
 
+const riasecColors = {
+  R: {
+    bg: 'bg-orange-500',
+    text: 'text-orange-800',
+    bgLight: 'bg-orange-100',
+  },
+  I: {
+    bg: 'bg-blue-500',
+    text: 'text-blue-800',
+    bgLight: 'bg-blue-100',
+  },
+  A: {
+    bg: 'bg-purple-500',
+    text: 'text-purple-800',
+    bgLight: 'bg-purple-100',
+  },
+  S: {
+    bg: 'bg-green-500',
+    text: 'text-green-800',
+    bgLight: 'bg-green-100',
+  },
+  E: {
+    bg: 'bg-red-500',
+    text: 'text-red-800',
+    bgLight: 'bg-red-100',
+  },
+  C: {
+    bg: 'bg-slate-500',
+    text: 'text-slate-800',
+    bgLight: 'bg-slate-100',
+  },
+};
+
 // Tipe untuk props halaman tidak berubah
 type HasilPageProps = {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -93,10 +126,15 @@ async function HasilContent({ searchParams }: HasilPageProps) {
               <div key={type}>
                 <div className="flex justify-between mb-1">
                   <span className="text-base font-medium text-slate-700">{riasecDetails[type].name.replace(/\s\(.*\)/, '')}</span>
-                  <span className="text-sm font-medium text-blue-700">{percentage}%</span>
+                  {/* --- UBAH WARNA PERSENTASE --- */}
+                  <span className={`text-sm font-medium ${riasecColors[type].text}`}>{percentage}%</span>
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-2.5">
-                  <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${percentage}%` }}></div>
+                  {/* --- UBAH WARNA BAR --- */}
+                  <div 
+                    className={`h-2.5 rounded-full ${riasecColors[type].bg}`} 
+                    style={{ width: `${percentage}%` }}
+                  ></div>
                 </div>
               </div>
             ))}
@@ -104,7 +142,11 @@ async function HasilContent({ searchParams }: HasilPageProps) {
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-lg h-full flex flex-col items-center justify-center space-y-4">
           <h2 className="text-xl font-bold text-slate-700 text-center">Peta Minatmu</h2>
-          <HexagonChart percentages={userProfile.percentages} topThree={userProfile.topThree} />
+          <HexagonChart 
+            percentages={userProfile.percentages} 
+            topThree={userProfile.topThree} 
+            colors={riasecColors} 
+          />
         </div>
       </section>
 
@@ -114,14 +156,21 @@ async function HasilContent({ searchParams }: HasilPageProps) {
         <div className="space-y-4">
           <h2 className="text-3xl font-bold text-slate-800">Rekomendasi Jurusan</h2>
           {majorMatches.map((major: MatchResult) => (
-            <div key={major.id} className="bg-white p-6 rounded-2xl shadow-lg">
+            <div key={major.id} className="bg-white p-6 rounded-2xl shadow-lg flex flex-col">
               <div className="flex justify-between items-start">
                 <h3 className="text-xl font-bold text-slate-900">{major.name}</h3>
-                <span className="text-xs font-bold text-blue-800 bg-blue-100 px-3 py-1 rounded-full whitespace-nowrap">
+                {/* --- UBAH WARNA BADGE --- */}
+                <span className={`text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap ${riasecColors[major.matchedType].bgLight} ${riasecColors[major.matchedType].text}`}>
                   Sesuai Minat {riasecDetails[major.matchedType].name.replace(/\s\(.*\)/, '')}
                 </span>
               </div>
               <p className="mt-2 text-slate-600">{major.description}</p>
+               
+              <MatchMeter 
+                score={major.matchScore} 
+                colorClass={riasecColors[major.matchedType].bg} // <-- Berikan warna yang sesuai
+              />
+              
               <p className="mt-3 text-xs text-slate-400">
                 Profil Jurusan: {Object.entries(major.riasecProfile).map(([t, s]) => `${t}:${s}`).join(', ')}
               </p>
@@ -135,11 +184,18 @@ async function HasilContent({ searchParams }: HasilPageProps) {
             <div key={career.id} className="bg-white p-6 rounded-2xl shadow-lg">
               <div className="flex justify-between items-start">
                 <h3 className="text-xl font-bold text-slate-900">{career.name}</h3>
-                <span className="text-xs font-bold text-blue-800 bg-blue-100 px-3 py-1 rounded-full whitespace-nowrap">
+                {/* --- UBAH WARNA BADGE --- */}
+                <span className={`text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap ${riasecColors[career.matchedType].bgLight} ${riasecColors[career.matchedType].text}`}>
                   Sesuai Minat {riasecDetails[career.matchedType].name.replace(/\s\(.*\)/, '')}
                 </span>
               </div>
               <p className="mt-2 text-slate-600">{career.description}</p>
+              
+              <MatchMeter 
+                score={career.matchScore} 
+                colorClass={riasecColors[career.matchedType].bg} // <-- Berikan warna yang sesuai
+              />
+              
               <p className="mt-3 text-xs text-slate-400">
                 Profil Karier: {Object.entries(career.riasecProfile).map(([t, s]) => `${t}:${s}`).join(', ')}
               </p>
@@ -154,3 +210,23 @@ async function HasilContent({ searchParams }: HasilPageProps) {
 function LoadingSkeleton() {
   return <div className="text-center p-12 text-lg font-semibold">Menganalisis jawabanmu...</div>;
 }
+
+function MatchMeter({ score, colorClass }: { score: number; colorClass: string }) {
+  return (
+    <div className="mt-4">
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-sm font-semibold text-slate-600">Tingkat Kecocokan</span>
+        {/* Kita bisa membuat teks persentasenya juga berwarna */}
+        <span className={`text-sm font-bold ${colorClass.replace('bg-', 'text-')}`}>{score}%</span>
+      </div>
+      <div className="w-full bg-slate-200 rounded-full h-2">
+        <div
+          // Hapus gradasi, gunakan warna solid dari props
+          className={`h-2 rounded-full ${colorClass}`}
+          style={{ width: `${score}%` }}
+        ></div>
+      </div>
+    </div>
+  );
+}
+
