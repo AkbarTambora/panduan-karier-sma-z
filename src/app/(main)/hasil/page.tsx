@@ -43,7 +43,7 @@ const riasecColors = {
 
 // Tipe untuk props halaman tidak berubah
 type HasilPageProps = {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 // Komponen Halaman Utama (Server Component)
