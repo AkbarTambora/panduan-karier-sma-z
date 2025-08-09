@@ -61,32 +61,32 @@ export default async function HasilPage({ searchParams }: HasilPageProps) {
 
 // Komponen Konten Inti (Server Component)
 async function HasilContent({ searchParams }: HasilPageProps) {
-   // =================================================================
-  // BLOK KODE BARU YANG LEBIH AMAN UNTUK MEMBACA searchParams
+  // =================================================================
+  // LANGKAH #1: TUNGGU 'searchParams' SELESAI
+  // =================================================================
+  const resolvedSearchParams = await searchParams;
+
+  // =================================================================
+  // LANGKAH #2: SEKARANG KITA BISA PROSES SEPERTI BIASA
   // =================================================================
   const RIASEC_TYPES: RiasecType[] = ['R', 'I', 'A', 'S', 'E', 'C'];
   
-  // Ambil data personal (handle jika nilainya array, ambil yg pertama)
-  const namaValue = searchParams.nama;
+  const namaValue = resolvedSearchParams.nama;
   const nama = Array.isArray(namaValue) ? namaValue[0] : namaValue || 'Siswa';
 
-  const kelasValue = searchParams.kelas;
+  const kelasValue = resolvedSearchParams.kelas;
   const kelas = Array.isArray(kelasValue) ? kelasValue[0] : kelasValue || 'Kelas';
   
-  const sekolahValue = searchParams.sekolah;
+  const sekolahValue = resolvedSearchParams.sekolah;
   const sekolah = Array.isArray(sekolahValue) ? sekolahValue[0] : sekolahValue || 'Sekolah';
 
-  // Ambil skor
   const riasecScores: { [key: string]: string } = {};
   for (const key of RIASEC_TYPES) {
-    const scoreValue = searchParams[key];
+    const scoreValue = resolvedSearchParams[key];
     if (scoreValue && typeof scoreValue === 'string') {
       riasecScores[key] = scoreValue;
     }
   }
-  // =================================================================
-  // AKHIR BLOK KODE BARU
-  // =================================================================
 
   // Pengaman: Jika tidak ada skor sama sekali, kembalikan ke halaman awal
   if (Object.keys(riasecScores).length === 0) {
