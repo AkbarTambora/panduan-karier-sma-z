@@ -35,7 +35,7 @@ export default function DashboardPage() {
               />
             </div>
           </div>
-
+          <br></br>
           <p className="mt-6 text-lg text-slate-600 max-w-2xl mx-auto">
             Bingung setelah lulus SMA mau ke mana? Aplikasi ini dirancang untuk membantumu mengenali minat & bakat terpendam, serta melihat pilihan karier yang paling cocok untukmu.
           </p>
