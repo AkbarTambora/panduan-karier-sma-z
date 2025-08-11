@@ -11,6 +11,8 @@ export interface Major {
   _id?: ObjectId; // Tambahkan ini, '?' berarti opsional
   id: string;
   name: string;
+  field: string;        // 🆕 Category level 1
+  subField: string;     // 🆕 Category level 2 (for accordion)
   description: string;
   riasecProfile: RiasecScoreProfile;
 }

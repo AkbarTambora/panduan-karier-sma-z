@@ -1,9 +1,8 @@
 // src/lib/services/riasecService.ts
 
 import type { RiasecType } from '@/data/riasecQuestions';
-// --- PERBAIKAN: Impor tipe yang dibutuhkan ---
 import type { Career } from '@/data/careers';
-import type { Major, RiasecScoreProfile } from '@/data/majors'; // <-- Buka kembali RiasecScoreProfile
+import type { Major, RiasecScoreProfile } from '@/data/majors';
 import { motivations } from '@/data/motivations';
 import { riasecDetails } from '@/data/riasecDescriptions';
 import clientPromise from '@/lib/mongodb';
@@ -20,19 +19,34 @@ export interface UserProfile {
   personaName: string;
 }
 
+// 🆕 ENHANCED: MatchResult now includes confidence scoring
 export interface MatchResult {
   id: string;
   name: string;
   description: string;
-  matchedType: RiasecType; // Tipe dominan pengguna yang cocok dengan item ini
+  matchedType: RiasecType;
   riasecProfile: RiasecScoreProfile;
   matchScore: number;
+  confidenceScore: number; // 🆕 NEW: 0-100%
+  reasoning: string;        // 🆕 NEW: Explanation why it matches
+}
+
+// 🆕 NEW: Enhanced grouped recommendations with confidence-based sorting
+export interface GroupedRecommendations {
+  [category: string]: MatchResult[];
+}
+
+// 🆕 NEW: Curated display structure
+export interface CuratedRecommendations {
+  topPicks: GroupedRecommendations;      // Top 3 categories, 1 item each
+  alternatives: GroupedRecommendations;  // Remaining categories
+  totalCount: number;
 }
 
 export interface AnalysisReport {
   userProfile: UserProfile;
-  majorMatches: MatchResult[];
-  careerMatches: MatchResult[];
+  majorMatches: CuratedRecommendations;  // 🔄 Changed to curated structure
+  careerMatches: CuratedRecommendations; // 🔄 Changed to curated structure
   motivation: string;
 }
 
@@ -41,15 +55,11 @@ const RIASEC_TYPES: RiasecType[] = ['R', 'I', 'A', 'S', 'E', 'C'];
 
 /**
  * Fungsi utama yang dipanggil oleh halaman Hasil.
- * PERBAIKAN: Ubah tipe parameter menjadi lebih spesifik.
  */
 export async function getAnalysisReport(rawScores: { [key: string]: string }): Promise<AnalysisReport> {
-  
   const mongoClient = await clientPromise;
-  const dbName = process.env.MONGODB_DB_NAME;
-  if (!dbName) {
-    throw new Error("Missing environment variable: MONGODB_DB_NAME");
-  }
+  const dbName = process.env.MONGODB_DB_NAME || "panduan-karier-db";
+  
   const db = mongoClient.db(dbName);
 
   const [majorsData, careersData] = await Promise.all([
@@ -57,11 +67,11 @@ export async function getAnalysisReport(rawScores: { [key: string]: string }): P
     db.collection<Career>('careers').find({}).toArray()
   ]);
 
-  // --- PERBAIKAN: Ganti 'processUserucers' menjadi 'processUserScores' ---
   const userProfile = processUserScores(rawScores);
   
-  const majorMatches = getTopMatches(userProfile, majorsData);
-  const careerMatches = getTopMatches(userProfile, careersData);
+  // 🔄 Updated calls with curated structure
+  const majorMatches = getCuratedMatches(userProfile, majorsData);
+  const careerMatches = getCuratedMatches(userProfile, careersData);
   const motivation = getPersonalizedMotivation(userProfile.topTwoCode);
 
   return {
@@ -72,20 +82,15 @@ export async function getAnalysisReport(rawScores: { [key: string]: string }): P
   };
 }
 
-// --- Fungsi Helper ---
-
 /**
- * PERBAIKAN: Ubah tipe parameter di sini juga.
- * Sekarang fungsi ini menerima objek JS biasa, sehingga looping menjadi aman.
+ * Process raw scores into user profile
  */
-
-export function processUserScores(rawScores: { [key:string]: string }): UserProfile {
+export function processUserScores(rawScores: { [key: string]: string }): UserProfile {
   const scoresMap: Partial<{ [key in RiasecType]: number }> = {};
   
-   // ✅ Loop ini sekarang AMAN karena `rawScores` bukan lagi proxy object.
+  // ✅ Loop ini sekarang AMAN karena `rawScores` bukan lagi proxy object.
   for (const key in rawScores) {
     if (RIASEC_TYPES.includes(key as RiasecType)) {
-      // ✅ Akses ini juga AMAN.
       scoresMap[key as RiasecType] = Number(rawScores[key]);
     }
   }
@@ -107,22 +112,21 @@ export function processUserScores(rawScores: { [key:string]: string }): UserProf
   // Guard clause jika data tidak lengkap
   if (!topThree[0] || !topThree[1]) {
     return {
-        scores: sortedScores,
-        percentages,
-        topThree,
-        topTwoCode: '',
-        personaName: 'Profil Unik'
-    }
+      scores: sortedScores,
+      percentages,
+      topThree,
+      topTwoCode: '',
+      personaName: 'Profil Unik'
+    };
   }
 
   const dominantTypeInfo = riasecDetails[topThree[0]];
   const secondaryTypeInfo = riasecDetails[topThree[1]];
   
-  // Dengan logika yang lebih cerdas ini:
-  const dominantPersona = dominantTypeInfo.name.match(/\((.*?)\)/)?.[1] || dominantTypeInfo.name.split(' ')[0];
-  const secondaryPersona = secondaryTypeInfo.name.match(/\((.*?)\)/)?.[1] || secondaryTypeInfo.name.split(' ')[0];
-  const secondaryPersonaClean = secondaryPersona.replace('Si ', '');
-  const personaName = `${dominantPersona} yang ${secondaryPersonaClean}`;
+  // ✅ FIXED: Extract English name (before parentheses)
+  const dominantPersona = dominantTypeInfo.name.split(' (')[0]; // "Realistic" from "Realistic (Si Realistis)"
+  const secondaryPersona = secondaryTypeInfo.name.split(' (')[0]; // "Artistic" from "Artistic (Si Kreatif)"
+  const personaName = `Si ${dominantPersona} yang ${secondaryPersona}`;
 
   return {
     scores: sortedScores,
@@ -134,31 +138,21 @@ export function processUserScores(rawScores: { [key:string]: string }): UserProf
 }
 
 /**
- * Mendapatkan rekomendasi teratas berdasarkan 3 tipe dominan pengguna.
- * Logika ini lebih transparan daripada Cosine Similarity.
- * @param userProfile - Profil pengguna yang sudah diproses.
- * @param items - Array data jurusan atau karier.
- * @returns {MatchResult[]} - Daftar item yang direkomendasikan.
+ * 🆕 NEW: Enhanced getCuratedMatches function with confidence scoring and curated display
  */
-export function getTopMatches(
-  userProfile: UserProfile, 
+export function getCuratedMatches(
+  userProfile: UserProfile,
   items: (Major | Career)[]
-): MatchResult[] {
-  const { topThree, percentages } = userProfile;
+): CuratedRecommendations {
   
-  if (topThree.length === 0) {
-    return [];
-  }
-
-  const allMatches: MatchResult[] = [];
-
-  // 1. Hitung skor kecocokan untuk SEMUA item
+  // 1. Calculate match scores with confidence for ALL items
+  const allMatches: (MatchResult & { category: string })[] = [];
+  
   for (const item of items) {
-    const matchScore = calculateMatchScore(percentages, item.riasecProfile);
-    const dominantType = Object.entries(item.riasecProfile).sort(([,a],[,b]) => b - a)[0][0] as RiasecType;
-
-    // Tambahkan hanya jika tipe dominan item ada di 3 teratas pengguna
-    if (topThree.includes(dominantType)) {
+    const { matchScore, confidenceScore, reasoning } = calculateEnhancedMatchScore(userProfile, item);
+    const dominantType = getDominantType(item.riasecProfile);
+    
+    if (userProfile.topThree.includes(dominantType)) {
       allMatches.push({
         id: item.id,
         name: item.name,
@@ -166,59 +160,158 @@ export function getTopMatches(
         matchedType: dominantType,
         riasecProfile: item.riasecProfile,
         matchScore: matchScore,
+        confidenceScore: confidenceScore, // 🆕 NEW
+        reasoning: reasoning,             // 🆕 NEW
+        // 🆕 Add category for grouping
+        category: 'subField' in item ? item.subField : item.subCluster
       });
     }
   }
-
-  // 2. Urutkan semua kandidat berdasarkan skor kecocokan, dari tertinggi ke terendah
-  allMatches.sort((a, b) => b.matchScore - a.matchScore);
-
-  // 3. Ambil 6 rekomendasi teratas, pastikan tidak ada duplikat ID (untuk jaga-jaga)
-  const finalRecommendations: MatchResult[] = [];
-  const seenIds = new Set<string>();
+  
+  // 2. Sort by confidence score first, then match score
+  allMatches.sort((a, b) => {
+    if (Math.abs(a.confidenceScore - b.confidenceScore) > 5) {
+      return b.confidenceScore - a.confidenceScore;
+    }
+    return b.matchScore - a.matchScore;
+  });
+  
+  // 3. Group by category
+  const grouped: GroupedRecommendations = {};
   
   for (const match of allMatches) {
-    if (finalRecommendations.length >= 6) break;
-    if (!seenIds.has(match.id)) {
-      finalRecommendations.push(match);
-      seenIds.add(match.id);
+    const category = match.category;
+    if (!grouped[category]) {
+      grouped[category] = [];
+    }
+    
+    // Limit items per category
+    if (grouped[category].length < 4) {
+      // ✅ Remove category field before pushing to grouped result
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { category: categoryField, ...matchWithoutCategory } = match;
+      grouped[category].push(matchWithoutCategory);
     }
   }
   
-  return finalRecommendations;
+  // 4. 🆕 NEW: Create curated structure
+  const sortedCategories = Object.entries(grouped)
+    .map(([category, items]) => ({
+      category,
+      items,
+      avgConfidence: items.reduce((sum, item) => sum + item.confidenceScore, 0) / items.length,
+      avgMatch: items.reduce((sum, item) => sum + item.matchScore, 0) / items.length
+    }))
+    .sort((a, b) => {
+      // Sort by confidence first, then match score
+      if (Math.abs(a.avgConfidence - b.avgConfidence) > 5) {
+        return b.avgConfidence - a.avgConfidence;
+      }
+      return b.avgMatch - a.avgMatch;
+    });
+  
+  // 5. 🆕 NEW: Split into topPicks and alternatives
+  const topPicks: GroupedRecommendations = {};
+  const alternatives: GroupedRecommendations = {};
+  
+  sortedCategories.forEach(({ category, items }, index) => {
+    if (index < 3) {
+      // Top 3 categories go to topPicks with only 1 item each
+      topPicks[category] = [items[0]];
+    } else {
+      // Rest go to alternatives
+      alternatives[category] = items;
+    }
+  });
+  
+  return {
+    topPicks,
+    alternatives,
+    totalCount: allMatches.length
+  };
 }
 
+/**
+ * 🆕 NEW: Enhanced match calculation with confidence scoring
+ */
+function calculateEnhancedMatchScore(
+  userProfile: UserProfile, 
+  item: Major | Career
+): { matchScore: number; confidenceScore: number; reasoning: string } {
+  
+  const userPercentagesMap = new Map(userProfile.percentages);
+  
+  // Calculate basic match score (existing logic)
+  let sad = 0;
+  for (const type of RIASEC_TYPES) {
+    const userScore = userPercentagesMap.get(type) || 0;
+    const itemScore = (item.riasecProfile[type] || 0) * 10; // Scale 1-10 to 0-100
+    sad += Math.abs(userScore - itemScore);
+  }
+
+  const maxSAD = 600;
+  const matchScore = (1 - (sad / maxSAD)) * 100;
+
+  // 🆕 NEW: Calculate confidence score
+  const dominantType = getDominantType(item.riasecProfile);
+  const userTopThree = userProfile.topThree;
+  
+  let confidenceScore = 50; // Base confidence
+  let reasoning = "";
+  
+  // Boost confidence if item's dominant type is in user's top 3
+  if (userTopThree.includes(dominantType)) {
+    const typeIndex = userTopThree.indexOf(dominantType);
+    if (typeIndex === 0) {
+      confidenceScore += 40; // Primary match
+      reasoning = `Perfect match dengan tipe dominanmu (${riasecDetails[dominantType].name.split(' (')[0]})`;
+    } else if (typeIndex === 1) {
+      confidenceScore += 30; // Secondary match
+      reasoning = `Strong match dengan tipe sekundermu (${riasecDetails[dominantType].name.split(' (')[0]})`;
+    } else {
+      confidenceScore += 20; // Tertiary match
+      reasoning = `Good match dengan salah satu tipe topmu (${riasecDetails[dominantType].name.split(' (')[0]})`;
+    }
+  }
+  
+  // Boost confidence for high match scores
+  if (matchScore > 80) {
+    confidenceScore += 10;
+    reasoning += ` + Skor kecocokan sangat tinggi`;
+  }
+  
+  // Reduce confidence for low match scores
+  if (matchScore < 60) {
+    confidenceScore -= 15;
+    reasoning += ` (perlu pertimbangan lebih)`;
+  }
+  
+  // Ensure confidence score is within bounds
+  confidenceScore = Math.max(10, Math.min(95, confidenceScore));
+  
+  if (!reasoning) {
+    reasoning = `Kecocokan berdasarkan analisis profil RIASEC`;
+  }
+
+  return {
+    matchScore: Math.round(matchScore),
+    confidenceScore: Math.round(confidenceScore),
+    reasoning: reasoning
+  };
+}
+
+/**
+ * Get personalized motivation message
+ */
 export function getPersonalizedMotivation(topTwoCode: string): string {
   const reversedCode = topTwoCode.split('').reverse().join('');
   return motivations[topTwoCode] || motivations[reversedCode] || motivations['DEFAULT'];
 }
 
 /**
- * Menghitung skor kecocokan antara profil pengguna dan profil item (jurusan/karier).
- * Menggunakan metode 1 - (SAD / MaxSAD) untuk menghasilkan persentase (0-100).
- * @param userPercentages - Array persentase pengguna, format: [['R', 75], ['I', 60], ...]
- * @param itemProfile - Objek profil RIASEC item, format: { R: 9, I: 8, ... } (skala 1-10)
- * @returns {number} Skor kecocokan dalam persen (0-100).
+ * Helper function to get dominant RIASEC type from profile
  */
-function calculateMatchScore(
-  userPercentages: RiasecScoreTuple[], 
-  itemProfile: RiasecScoreProfile
-): number {
-  const userPercentagesMap = new Map(userPercentages);
-  
-  // Sum of Absolute Differences (SAD)
-  let sad = 0;
-  for (const type of RIASEC_TYPES) {
-    const userScore = userPercentagesMap.get(type) || 0;
-    const itemScore = (itemProfile[type] || 0) * 10; // Ubah skala 1-10 jadi 0-100
-    sad += Math.abs(userScore - itemScore);
-  }
-
-  // SAD maksimum yang mungkin terjadi adalah 600 (jika semua 0 vs 100).
-  const maxSAD = 600;
-  
-  // Ubah SAD menjadi skor kecocokan (semakin kecil SAD, semakin tinggi skor)
-  const matchScore = (1 - (sad / maxSAD)) * 100;
-
-  return Math.round(matchScore);
+function getDominantType(riasecProfile: RiasecScoreProfile): RiasecType {
+  return Object.entries(riasecProfile)
+    .sort(([, a], [, b]) => b - a)[0][0] as RiasecType;
 }

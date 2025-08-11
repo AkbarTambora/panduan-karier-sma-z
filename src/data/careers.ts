@@ -8,6 +8,8 @@ export interface Career {
   _id?: ObjectId; // Tambahkan ini, '?' berarti opsional
   id: string;
   name: string;
+  cluster: string;      // 🆕 Category level 1
+  subCluster: string;   // 🆕 Category level 2 (for accordion)
   description: string;
   riasecProfile: RiasecScoreProfile;
 }
