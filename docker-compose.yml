@@ -1,0 +1,20 @@
+services:
+  panduan-karier-sma-z:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      secrets: 
+        - mongodb_uri_secret
+        - mongodb_dbname_secret
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB_NAME=${MONGODB_DB_NAME}
+    restart: unless-stopped
+
+secrets:
+  mongodb_uri_secret:
+    environment: MONGODB_URI 
+  mongodb_dbname_secret:
+    environment: MONGODB_DB_NAME 
