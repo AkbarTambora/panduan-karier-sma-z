@@ -1,6 +1,7 @@
 // src/app/api/feedback/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
 import clientPromise from '@/lib/mongodb';
 
 export async function POST(request: NextRequest) {
@@ -70,9 +71,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET endpoint untuk analytics (optional, untuk admin)
+// GET endpoint untuk analytics (hanya admin)
 export async function GET() {
-  // ✅ FIXED: Removed unused 'request' parameter
+  // ✅ FIXED: Cek autentikasi — hanya user dengan email admin yang bisa akses
+  const session = await auth();
+  const adminEmail = process.env.ADMIN_EMAIL;
+
+  if (!session?.user?.email || (adminEmail && session.user.email !== adminEmail)) {
+    return NextResponse.json({ error: 'Akses tidak diizinkan' }, { status: 403 });
+  }
+
   try {
     const mongoClient = await clientPromise;
     const dbName = process.env.MONGODB_DB_NAME || "panduan-karier-db";

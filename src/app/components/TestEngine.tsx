@@ -18,43 +18,10 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
-// 🆕 NEW: Strategic questions for quick test (most predictive questions)
-const getStrategicQuestions = () => {
-  // 🔄 ENHANCED: More diverse and strategic questions (3 per RIASEC type)
-  const strategicQuestionPool = [
-    // REALISTIC (R) - 3 most predictive questions
-    { id: 1, text: "Saya suka membongkar pasang dan mencari tahu cara kerja peralatan mekanik atau elektronik.", type: 'R' as RiasecType },
-    { id: 6, text: "Saya senang merakit model kit, furnitur, atau komponen komputer.", type: 'R' as RiasecType },
-    { id: 12, text: "Saya lebih suka pekerjaan dengan hasil yang nyata dan terlihat jelas.", type: 'R' as RiasecType },
-    
-    // INVESTIGATIVE (I) - 3 most predictive questions  
-    { id: 16, text: "Saya senang memecahkan teka-teki logika, soal matematika yang rumit, atau masalah strategis.", type: 'I' as RiasecType },
-    { id: 21, text: "Saya suka mengamati dan menganalisis data untuk menemukan sebuah pola atau tren.", type: 'I' as RiasecType },
-    { id: 26, text: "Belajar bahasa pemrograman atau cara kerja algoritma adalah hal yang menarik.", type: 'I' as RiasecType },
-    
-    // ARTISTIC (A) - 3 most predictive questions
-    { id: 31, text: "Saya suka mengekspresikan ide-ide saya melalui tulisan, gambar, musik, atau tarian.", type: 'A' as RiasecType },
-    { id: 36, text: "Saya pandai mencocokkan warna, bentuk, dan gaya (misalnya dalam berpakaian atau mendekorasi).", type: 'A' as RiasecType },
-    { id: 41, text: "Saya suka mencoba cara-cara baru untuk melakukan sesuatu, bukan mengikuti cara lama.", type: 'A' as RiasecType },
-    
-    // SOCIAL (S) - 3 most predictive questions
-    { id: 46, text: "Saya merasa puas ketika bisa membantu orang lain memecahkan masalah mereka.", type: 'S' as RiasecType },
-    { id: 51, text: "Saya sering terlibat dalam kegiatan sukarela atau organisasi sosial.", type: 'S' as RiasecType },
-    { id: 56, text: "Saya pandai memberikan dukungan emosional kepada teman yang sedang sedih.", type: 'S' as RiasecType },
-    
-    // ENTERPRISING (E) - 3 most predictive questions
-    { id: 61, text: "Saya suka memimpin sebuah proyek atau menjadi ketua dalam suatu kelompok (misal: ketua kelas, ketua OSIS).", type: 'E' as RiasecType },
-    { id: 66, text: "Saya berani berbicara di depan umum atau melakukan presentasi.", type: 'E' as RiasecType },
-    { id: 71, text: "Saya bercita-cita untuk memiliki posisi yang berpengaruh dan membuat keputusan penting.", type: 'E' as RiasecType },
-    
-    // CONVENTIONAL (C) - 3 most predictive questions
-    { id: 76, text: "Saya suka bekerja dengan data dan angka, dan memastikan semuanya akurat.", type: 'C' as RiasecType },
-    { id: 81, text: "Membuat daftar tugas (to-do list) dan mencentangnya membuat saya merasa puas.", type: 'C' as RiasecType },
-    { id: 86, text: "Saya suka mengklasifikasikan dan mengkategorikan informasi agar mudah ditemukan.", type: 'C' as RiasecType },
-  ];
-  
-  return strategicQuestionPool;
-};
+// ✅ FIXED: Filter dari riasecQuestions asli by ID, bukan hard-code duplikat
+// Ini memastikan sinkronisasi otomatis jika pertanyaan di data utama diupdate
+const STRATEGIC_QUESTION_IDS = [1, 6, 12, 16, 21, 26, 31, 36, 41, 46, 51, 56, 61, 66, 71, 76, 81, 86];
+const getStrategicQuestions = () => riasecQuestions.filter(q => STRATEGIC_QUESTION_IDS.includes(q.id));
 
 // ===================================================================
 // KOMPONEN PEMBUNGKUS (WRAPPER)
@@ -64,6 +31,47 @@ export default function TestEngineWrapper() {
     <Suspense fallback={<LoadingState />}>
       <TestEngine />
     </Suspense>
+  );
+}
+
+// ===================================================================
+// MODAL KONFIRMASI — Ganti window.confirm() yang adalah anti-pattern
+// ===================================================================
+function ConfirmModal({
+  isOpen,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+}: {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 animate-in fade-in zoom-in duration-200">
+        <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
+        <p className="text-slate-600 text-sm mb-6">{message}</p>
+        <div className="flex space-x-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition"
+          >
+            Ya, Ganti Mode
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -79,12 +87,13 @@ function TestEngine() {
   const kelas = searchParams.get('kelas') || '';
   const sekolah = searchParams.get('sekolah') || '';
 
-  // 🆕 NEW: Test mode state
   const [testMode, setTestMode] = useState<TestMode | null>(null);
   const [shuffledQuestions, setShuffledQuestions] = useState<typeof riasecQuestions>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>(new Map());
   const [isFinished, setIsFinished] = useState(false);
+  // ✅ FIXED: state untuk modal konfirmasi, menggantikan window.confirm()
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // useEffect untuk setup questions based on test mode
   useEffect(() => {
@@ -103,7 +112,6 @@ function TestEngine() {
   const totalQuestions = shuffledQuestions.length;
   const currentQuestion = shuffledQuestions[currentQuestionIndex];
   
-  // 🆕 NEW: Mode selection screen
   if (!testMode) {
     return <ModeSelectionScreen onModeSelect={setTestMode} />;
   }
@@ -135,26 +143,39 @@ function TestEngine() {
 
   const calculateAndNavigate = () => {
     const scores: { [key in RiasecType]: number } = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
+    const RIASEC_TYPES: RiasecType[] = ['R', 'I', 'A', 'S', 'E', 'C'];
     
-    // 🆕 ENHANCED: Better scoring for quick test
     if (testMode === 'quick') {
-      // For quick test: each question represents 5 questions worth
-      // Since we have 3 questions per type instead of 15
+      // Quick test: 3 soal per tipe × faktor 5 = setara 15 soal
       answers.forEach((answer) => {
         scores[answer.type] += answer.value * 5;
       });
+      
+      // ✅ FIXED: Pastikan semua tipe punya nilai minimal (cegah skor 0 yang jatuh di bawah normalisasi)
+      for (const type of RIASEC_TYPES) {
+        if (scores[type] === 0) {
+          scores[type] = 15; // Nilai minimum (1 × 5 × 3)
+        }
+      }
     } else {
       // Full test: normal scoring
       answers.forEach((answer) => {
         scores[answer.type] += answer.value;
       });
+      
+      // Pastikan semua tipe punya nilai minimal
+      for (const type of RIASEC_TYPES) {
+        if (scores[type] === 0) {
+          scores[type] = 15; // Nilai minimum (1 × 15 soal)
+        }
+      }
     }
 
     const params = new URLSearchParams();
     params.append('nama', nama);
     params.append('kelas', kelas);
     params.append('sekolah', sekolah);
-    params.append('testMode', testMode); // Track which test was taken
+    params.append('testMode', testMode);
 
     Object.entries(scores).forEach(([key, value]) => {
       params.append(key, value.toString());
@@ -175,6 +196,20 @@ function TestEngine() {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
+      {/* ✅ Modal konfirmasi custom, menggantikan window.confirm() */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        title="Ganti Mode Tes?"
+        message="Progress kamu saat ini akan hilang dan kamu akan mulai dari awal. Yakin ingin mengganti mode?"
+        onConfirm={() => {
+          setShowConfirmModal(false);
+          setTestMode(null);
+          setAnswers(new Map());
+          setCurrentQuestionIndex(0);
+        }}
+        onCancel={() => setShowConfirmModal(false)}
+      />
+
       <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 min-h-[450px] flex flex-col justify-between">
         {isFinished ? (
           <FinishedScreen 
@@ -184,7 +219,7 @@ function TestEngine() {
         ) : (
           <>
             <div>
-              {/* 🆕 ENHANCED: Progress Bar with mode indicator */}
+              {/* Progress Bar with mode indicator */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center space-x-2">
@@ -213,7 +248,7 @@ function TestEngine() {
                 </div>
                 {testMode === 'quick' && (
                   <p className="text-xs text-green-600 mt-1">
-                    ⚡ Quick Test - Strategic questions for faster results
+                    ⚡ Quick Test — Pertanyaan strategis paling prediktif
                   </p>
                 )}
               </div>
@@ -255,15 +290,9 @@ function TestEngine() {
                 Kembali
               </button>
               <div className="flex items-center space-x-3">
-                {/* 🆕 NEW: Switch test mode option */}
+                {/* ✅ FIXED: Gunakan modal konfirmasi, bukan window.confirm() */}
                 <button
-                  onClick={() => {
-                    if (confirm('Ganti mode tes? Progress saat ini akan hilang.')) {
-                      setTestMode(null);
-                      setAnswers(new Map());
-                      setCurrentQuestionIndex(0);
-                    }
-                  }}
+                  onClick={() => setShowConfirmModal(true)}
                   className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 transition"
                 >
                   Ganti Mode
@@ -284,7 +313,7 @@ function TestEngine() {
   );
 }
 
-// 🆕 NEW: Mode Selection Screen
+// Mode Selection Screen
 function ModeSelectionScreen({ onModeSelect }: { onModeSelect: (mode: TestMode) => void }) {
   return (
     <div className="w-full max-w-3xl mx-auto">
@@ -334,7 +363,7 @@ function ModeSelectionScreen({ onModeSelect }: { onModeSelect: (mode: TestMode) 
               </li>
               <li className="flex items-center space-x-2">
                 <span className="text-green-500">✓</span>
-                <span><strong>Gambaran umum</strong> minat & bakat</span>
+                <span><strong>Gambaran umum</strong> minat &amp; bakat</span>
               </li>
             </ul>
             <div className="bg-green-50 p-3 rounded-lg border border-green-200">
@@ -417,7 +446,7 @@ function ModeSelectionScreen({ onModeSelect }: { onModeSelect: (mode: TestMode) 
   );
 }
 
-// 🆕 NEW: Enhanced Finished Screen
+// Enhanced Finished Screen
 function FinishedScreen({ 
   testMode, 
   onContinue 
