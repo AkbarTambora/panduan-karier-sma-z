@@ -1,16 +1,16 @@
 // src/lib/services/riasecService.test.ts
 
-import { describe, it, expect, vi } from 'vitest'; // ✅ Add vi for mocking
+import { describe, it, expect, vi } from 'vitest';
 import {
   processUserScores,
-  getTopMatches,
+  getCuratedMatches,      // ✅ FIXED: nama fungsi yang benar
   getPersonalizedMotivation,
 } from './riasecService';
 import { motivations } from '@/data/motivations';
-import type { UserProfile, GroupedRecommendations } from './riasecService';
+import type { UserProfile, CuratedRecommendations } from './riasecService'; // ✅ FIXED: tipe yang benar
 import type { Major } from '@/data/majors'; 
 
-// ✅ NEW: Mock MongoDB module
+// ✅ FIXED: Satu mock saja, tidak duplikat
 vi.mock('@/lib/mongodb', () => ({
   default: Promise.resolve({
     db: vi.fn().mockReturnValue({
@@ -22,12 +22,6 @@ vi.mock('@/lib/mongodb', () => ({
     })
   })
 }));
-
-vi.mock('@/lib/mongodb', () => {
-  return {
-    default: Promise.resolve({}),
-  };
-});
 
 describe('processUserScores', () => {
 
@@ -46,11 +40,10 @@ describe('processUserScores', () => {
 
     expect(result.topThree).toEqual(['R', 'A', 'S']);
     expect(result.topTwoCode).toBe('RA');
-    expect(result.personaName).toBe('Si Realistic yang Artistic');
+    // ✅ FIXED: sekarang nama Indonesia yang digunakan
+    expect(result.personaName).toBe('Si Realistis yang Kreatif');
 
     const realisticPercent = result.percentages.find(p => p[0] === 'R');
-    const artisticPercent = result.percentages.find(p => p[0] === 'A');
-    const socialPercent = result.percentages.find(p => p[0] === 'S');
     const investigativePercent = result.percentages.find(p => p[0] === 'I');
 
     expect(realisticPercent?.[1]).toBe(100);
@@ -72,7 +65,7 @@ describe('processUserScores', () => {
 
     expect(result.topThree).toEqual(['A', 'C', 'R']);
     expect(result.topTwoCode).toBe('AC');
-    // PERBAIKAN: Tambahkan ekspektasi yang hilang untuk kelengkapan tes
+    // ✅ FIXED: nama Indonesia yang benar
     expect(result.personaName).toBe('Si Kreatif yang Teratur');
   });
 
@@ -86,16 +79,59 @@ describe('processUserScores', () => {
     expect(result.topTwoCode).toBe('');
     expect(result.personaName).toBe('Profil Unik');
   });
+
+  // Skenario 4: Validasi NaN
+  it('SKENARIO 4: harus mengabaikan nilai non-numerik dari URL params', () => {
+    const mockRawScores = {
+      R: '75',
+      I: 'abc',    // ❌ non-numerik — harus diabaikan
+      A: '60',
+      S: '45',
+      E: 'undefined', // ❌ non-numerik
+      C: '20',
+    };
+
+    const result = processUserScores(mockRawScores);
+
+    // Pastikan tidak ada NaN dalam scores
+    for (const [, score] of result.scores) {
+      expect(isNaN(score)).toBe(false);
+    }
+    // Tipe I dan E tidak masuk karena NaN
+    expect(result.scores.find(([t]) => t === 'I')).toBeUndefined();
+    expect(result.scores.find(([t]) => t === 'E')).toBeUndefined();
+  });
+
+  // Skenario 5: Clamp nilai di luar range
+  it('SKENARIO 5: normalisasi skor tidak boleh menghasilkan nilai negatif atau > 100', () => {
+    const mockRawScores = {
+      R: '100', // > maxScorePerType (75), harus clamp ke 100%
+      I: '0',   // < minScorePerType (15), harus clamp ke 0%
+      A: '45',
+      S: '30',
+      E: '25',
+      C: '20',
+    };
+
+    const result = processUserScores(mockRawScores);
+
+    for (const [, pct] of result.percentages) {
+      expect(pct).toBeGreaterThanOrEqual(0);
+      expect(pct).toBeLessThanOrEqual(100);
+    }
+  });
 });
 
-describe('getTopMatches', () => {
+describe('getCuratedMatches', () => {
 
-  it('SKENARIO 4: harus mengembalikan grouped recommendations', () => {
+  it('SKENARIO 6: harus mengembalikan curated recommendations dengan topPicks dan alternatives', () => {
     const mockUserProfile: UserProfile = {
       scores: [['A', 75], ['S', 63], ['E', 51], ['C', 15], ['I', 15], ['R', 15]],
       percentages: [['A', 100], ['S', 80], ['E', 60], ['C', 0], ['I', 0], ['R', 0]],
       topThree: ['A', 'S', 'E'],
-    } as UserProfile;
+      topTwoCode: 'AS',
+      personaName: 'Si Kreatif yang Penolong',
+    };
 
     const mockItems: Major[] = [
       { 
@@ -140,31 +176,43 @@ describe('getTopMatches', () => {
       },
     ];
 
-    const result: GroupedRecommendations = getTopMatches(mockUserProfile, mockItems);
+    const result: CuratedRecommendations = getCuratedMatches(mockUserProfile, mockItems);
 
-    expect(typeof result).toBe('object');
+    // Pastikan struktur curated ada
+    expect(result).toHaveProperty('topPicks');
+    expect(result).toHaveProperty('alternatives');
+    expect(result).toHaveProperty('totalCount');
     
-    const categories = Object.keys(result);
-    expect(categories.length).toBeGreaterThan(0);
+    // totalCount harus sama dengan total item yang cocok (5 item)
+    expect(result.totalCount).toBe(5);
+
+    // topPicks: max 3 kategori, masing-masing 1 item
+    const topPickCategories = Object.keys(result.topPicks);
+    expect(topPickCategories.length).toBeLessThanOrEqual(3);
     
-    for (const category of categories) {
-      expect(Array.isArray(result[category])).toBe(true);
-      expect(result[category].length).toBeGreaterThan(0);
+    for (const category of topPickCategories) {
+      expect(Array.isArray(result.topPicks[category])).toBe(true);
+      expect(result.topPicks[category].length).toBe(1); // Hanya 1 item per top pick
+      
+      const item = result.topPicks[category][0];
+      expect(item).toHaveProperty('id');
+      expect(item).toHaveProperty('name');
+      expect(item).toHaveProperty('matchScore');
+      expect(item).toHaveProperty('confidenceScore');
+      expect(item).toHaveProperty('matchedType');
+      expect(item).toHaveProperty('reasoning');
     }
-
-    const allItems = Object.values(result).flat();
-    expect(allItems.length).toBe(5); // All 5 items should match
-    
-    const firstItem = allItems[0];
-    expect(firstItem).toHaveProperty('id');
-    expect(firstItem).toHaveProperty('name');
-    expect(firstItem).toHaveProperty('matchScore');
-    expect(firstItem).toHaveProperty('matchedType');
   });
 
-  // SKENARIO 5: Empty Result
-  it('SKENARIO 5: harus menangani kasus tidak ada item yang cocok', () => {
-    const mockUserProfile: UserProfile = { topThree: ['I'] } as UserProfile;
+  // Skenario: Empty Result
+  it('SKENARIO 7: harus menangani kasus tidak ada item yang cocok', () => {
+    const mockUserProfile: UserProfile = {
+      scores: [['I', 75]],
+      percentages: [['I', 100]],
+      topThree: ['I'],
+      topTwoCode: '',
+      personaName: 'Si Pemikir yang Unik',
+    };
 
     const mockItems: Major[] = [
       { 
@@ -177,16 +225,17 @@ describe('getTopMatches', () => {
       },
     ];
 
-    const result = getTopMatches(mockUserProfile, mockItems);
+    const result = getCuratedMatches(mockUserProfile, mockItems);
 
-    expect(Object.keys(result).length).toBe(0);
+    expect(Object.keys(result.topPicks).length).toBe(0);
+    expect(result.totalCount).toBe(0);
   });
 });
 
 describe('getPersonalizedMotivation', () => {
 
-  // SKENARIO 7: Kode Terbalik
-  it('SKENARIO 7: harus menemukan motivasi meskipun kodenya terbalik', () => {
+  // Skenario: Kode Terbalik
+  it('SKENARIO 8: harus menemukan motivasi meskipun kodenya terbalik', () => {
     const userCode = 'IR';
     const expectedMotivation = motivations['RI'];
 
@@ -195,8 +244,8 @@ describe('getPersonalizedMotivation', () => {
     expect(result).toBe(expectedMotivation);
   });
 
-  // SKENARIO 8: Default
-  it('SKENARIO 8: harus mengembalikan motivasi default jika tidak ada yang cocok', () => {
+  // Skenario: Default
+  it('SKENARIO 9: harus mengembalikan motivasi default jika tidak ada yang cocok', () => {
     const userCode = 'XX';
     const expectedMotivation = motivations['DEFAULT'];
 

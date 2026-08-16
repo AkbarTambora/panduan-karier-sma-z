@@ -57,8 +57,8 @@ export function RecommendationAccordion({
       </button>
       
       {/* Accordion Content */}
-      <div className={`transition-all duration-300 ease-in-out ${isOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
-        <div className="px-6 pb-6 space-y-4">
+      {isOpen && (
+        <div className="px-6 pb-6 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
           {items.map((item) => (
             <RecommendationCard
               key={item.id}
@@ -67,7 +67,7 @@ export function RecommendationAccordion({
             />
           ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -88,10 +88,13 @@ export async function getAnalysisReport(rawScores: { [key: string]: string }): P
 export function processUserScores(rawScores: { [key: string]: string }): UserProfile {
   const scoresMap: Partial<{ [key in RiasecType]: number }> = {};
   
-  // ✅ Loop ini sekarang AMAN karena `rawScores` bukan lagi proxy object.
+  // ✅ Loop dengan validasi NaN — cegah nilai non-numerik dari URL params
   for (const key in rawScores) {
     if (RIASEC_TYPES.includes(key as RiasecType)) {
-      scoresMap[key as RiasecType] = Number(rawScores[key]);
+      const parsed = Number(rawScores[key]);
+      if (!isNaN(parsed)) {
+        scoresMap[key as RiasecType] = parsed;
+      }
     }
   }
 
@@ -102,7 +105,10 @@ export function processUserScores(rawScores: { [key: string]: string }): UserPro
   const maxScorePerType = 75;
   
   const percentages: RiasecScoreTuple[] = sortedScores.map(([type, score]) => {
-    const normalizedScore = ((score - minScorePerType) / (maxScorePerType - minScorePerType)) * 100;
+    // ✅ Clamp normalisasi agar tidak menghasilkan nilai negatif atau > 100
+    const normalizedScore = Math.max(0, Math.min(100,
+      ((score - minScorePerType) / (maxScorePerType - minScorePerType)) * 100
+    ));
     return [type, Math.round(normalizedScore)];
   });
 
@@ -123,9 +129,13 @@ export function processUserScores(rawScores: { [key: string]: string }): UserPro
   const dominantTypeInfo = riasecDetails[topThree[0]];
   const secondaryTypeInfo = riasecDetails[topThree[1]];
   
-  // ✅ FIXED: Extract English name (before parentheses)
-  const dominantPersona = dominantTypeInfo.name.split(' (')[0]; // "Realistic" from "Realistic (Si Realistis)"
-  const secondaryPersona = secondaryTypeInfo.name.split(' (')[0]; // "Artistic" from "Artistic (Si Kreatif)"
+  // ✅ FIXED: Extract nama Indonesia dari dalam kurung, misal "Si Realistis" dari "Realistic (Si Realistis)"
+  const extractIndonesianName = (fullName: string): string => {
+    const match = fullName.match(/\(Si ([^)]+)\)/);
+    return match ? match[1] : fullName.split(' (')[0];
+  };
+  const dominantPersona = extractIndonesianName(dominantTypeInfo.name); // "Realistis"
+  const secondaryPersona = extractIndonesianName(secondaryTypeInfo.name); // "Kreatif"
   const personaName = `Si ${dominantPersona} yang ${secondaryPersona}`;
 
   return {

@@ -166,24 +166,22 @@ export function GroupedRecommendations({
             </div>
           </button>
           
-          {/* Alternatives Content - Animated Collapse */}
-          <div className={`transition-all duration-500 ease-in-out overflow-hidden ${
-            showAlternatives ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
-          }`}>
-            <div className="space-y-4 pt-2">
+          {/* Alternatives Content */}
+          {showAlternatives && (
+            <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
               {alternativeCategories.map(([category, items], index) => (
                 <RecommendationAccordion
                   key={category}
                   subtitle={category}
                   itemCount={items.length}
                   items={items}
-                  defaultOpen={index === 0} // Only first alternative category open by default
+                  defaultOpen={index === 0}
                   icon={icon}
                   riasecColors={riasecColors}
                 />
               ))}
             </div>
-          </div>
+          )}
         </div>
       )}
       
