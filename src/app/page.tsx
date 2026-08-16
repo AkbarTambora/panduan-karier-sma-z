@@ -1,6 +1,16 @@
 // src/app/page.tsx
-import { redirect } from 'next/navigation';
+// Halaman Utama: Menampilkan MemberDashboard jika login, GuestDashboard jika tamu
 
-export default function RootPage() {
-  redirect('/dashboard');
+import { auth } from '@/auth';
+import { GuestDashboard } from '@/components/dashboard/GuestDashboard';
+import { MemberDashboard } from '@/components/dashboard/MemberDashboard';
+
+export default async function HomePage() {
+  const session = await auth();
+
+  if (session?.user?.id) {
+    return <MemberDashboard user={session.user} />;
+  }
+
+  return <GuestDashboard />;
 }
